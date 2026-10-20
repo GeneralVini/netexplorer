@@ -1,0 +1,191 @@
+{
+  "upstream": "simple-icons/simple-icons",
+  "version": "16.33.0",
+  "commit": "e01988cc57a3aca39621023f9881e9b733ebcd77",
+  "icons": [
+    {
+      "slug": "sony",
+      "title": "Sony",
+      "color": "172033",
+      "source": "https://www.sony.com",
+      "upstream_sha256": "d012ec936e65a255f7b7b49a7e99c5aa7ab919fbc1487d8e09af82031c0e7090",
+      "sha256": "187525576fad1202361225ea04e336f7c05c91be8a834287b8c555ff9a54d8a5"
+    },
+    {
+      "slug": "samsung",
+      "title": "Samsung",
+      "color": "1428A0",
+      "source": "https://www.samsung.com/us/about-us/brand-identity/logo/",
+      "upstream_sha256": "4a241ca8ebab6e71883b172acb9fb454efa69f308e4f2c31ec80668aeb6627d9",
+      "sha256": "51f7486b9a367eb26b719946a3b1f20e5d0297c1a84d89d3fcae0c2d029cc294"
+    },
+    {
+      "slug": "lg",
+      "title": "LG",
+      "color": "A50034",
+      "source": "https://www.lg.com/global/our-brand/brand-expression/elements/logo/index.jsp",
+      "upstream_sha256": "bde201887c0e190b0b1bbc15c71a0996ed818050d8db5764adb310f0a4043020",
+      "sha256": "9e73cde587577c1b9d4e4c1c123ce7c5ef7343009f7fdc29c1b03b3a58ecaaaf"
+    },
+    {
+      "slug": "apple",
+      "title": "Apple",
+      "color": "000000",
+      "source": "https://www.apple.com",
+      "upstream_sha256": "2a1509dccd25e6d2bc7a11a8e52941077e1a48555e192ce638699b9f083c2a7c",
+      "sha256": "86c24da4ecf09706c2142788740cfac32cf239d6a43d9fa3804f253023396478"
+    },
+    {
+      "slug": "xiaomi",
+      "title": "Xiaomi",
+      "color": "FF6900",
+      "source": "https://www.mi.com/global",
+      "upstream_sha256": "8866d12a70d85ab43acd3b9c80f1b37792d91160d8273efffdf817af5fd608cb",
+      "sha256": "18dba771268481a19d201ad06259e6761293145e0058111749c2ac373f05b2ef"
+    },
+    {
+      "slug": "huawei",
+      "title": "Huawei",
+      "color": "FF0000",
+      "source": "https://e.huawei.com/ph/material/partner/0a72728b864949c48b22106454352483",
+      "upstream_sha256": "eb43e0a9450cef22ce70d624a60622a0aa542142102e402a293578b388b876f5",
+      "sha256": "239d3e1fad88f1b45e764c973db01274b309f03e8cdafb8c857278904e031195"
+    },
+    {
+      "slug": "tplink",
+      "title": "TP-Link",
+      "color": "4ACBD6",
+      "source": "https://www.tp-link.com",
+      "upstream_sha256": "953a4ef5b2560a10964b51667469c933314fcfcef35d655245430de0369447e2",
+      "sha256": "5ff4aee5cc32fb7af30fb0a4b695b11bde74df43e2d28c6c980f4e36e03162e5"
+    },
+    {
+      "slug": "asus",
+      "title": "ASUS",
+      "color": "000000",
+      "source": "https://www.asus.com",
+      "upstream_sha256": "3c44aa3018aff929760e1812ee4bba3c77098ab5c9ea8a815b66f5c70f3074b4",
+      "sha256": "75732207d9b07fe6727e1c3599cf0b4b5669bb41c362717b1b81e33eb7cdf004"
+    },
+    {
+      "slug": "netgear",
+      "title": "NETGEAR",
+      "color": "2C262D",
+      "source": "https://www.powershift.netgear.de/images/powershift/collateral/logos-visio-icons/brandguideline_partner_2018.pdf",
+      "upstream_sha256": "716b9c142d3ba8c7224527dc35116ab04830535bbb7d0760caaf85239b724f02",
+      "sha256": "e55923338ab72969b962793588510c4a15b0fce69c028c92d0cbae8667fa437b"
+    },
+    {
+      "slug": "ubiquiti",
+      "title": "Ubiquiti",
+      "color": "0559C9",
+      "source": "https://www.ui.com",
+      "upstream_sha256": "7082e9be5c0b167c30c3de6903ec7e497574b845a33415a572d4d1468f40e810",
+      "sha256": "82c12db3eb1a4b618323996fc9916bf481e4e57566df96ae9fa5c52d05e7203a"
+    },
+    {
+      "slug": "cisco",
+      "title": "Cisco",
+      "color": "1BA0D7",
+      "source": "https://www.cisco.com",
+      "upstream_sha256": "005c240c62355768860ad0bb19820033bc840ee390192c7139f8777d78291391",
+      "sha256": "c95f403544bdd78032366e995e197a93191917d7d892fe7079108a557c7f6bc9"
+    },
+    {
+      "slug": "hp",
+      "title": "HP",
+      "color": "0096D6",
+      "source": "https://brandcentral.hp.com/us/en/elements/hp-logo.html",
+      "upstream_sha256": "29c08a63cdea89850876a3840d93096b4125151dbba17a27926a08f9f3b0f788",
+      "sha256": "b6860fcfdd2d0f14a53e3009ad55c8983649c4a6edf6ff7ce2bfdebc030cb57f"
+    },
+    {
+      "slug": "lenovo",
+      "title": "Lenovo",
+      "color": "E2231A",
+      "source": "https://news.lenovo.com/press-kits/",
+      "upstream_sha256": "6d2d3756e0b0dd70a7f8d678794b43c89eb08871a45bcd79ede8ecc64a6141ca",
+      "sha256": "285ee4283e2d75d7a7083d59ef17a72622483007e2bc6f588029fbcac6618bc6"
+    },
+    {
+      "slug": "dell",
+      "title": "Dell",
+      "color": "007DB8",
+      "source": "https://www.dell.com",
+      "upstream_sha256": "be787bc8a294cecf64f7197b36f3f095583b2274f13ab336e7dabfe582353c45",
+      "sha256": "2a16603cf8edf315c91a816494bae7601309c27fb1c046ea7ae676499b01e5f7"
+    },
+    {
+      "slug": "panasonic",
+      "title": "Panasonic",
+      "color": "0049AB",
+      "source": "https://www.panasonic.com",
+      "upstream_sha256": "72034f2812318af5b16607f0038d7477678705a812a00d25149357e5bf472dd7",
+      "sha256": "a619a07ba5135a4f9e7b87d17a46c8eba6ba04d3599d13308199131f50c475a3"
+    },
+    {
+      "slug": "synology",
+      "title": "Synology",
+      "color": "475569",
+      "source": "https://www.synology.com/en-global/company/branding",
+      "upstream_sha256": "2b11f3cb29f858a3a28b2094a668f5700ff279051ffc475c4509333b7365db02",
+      "sha256": "a88c0b43270df2c518f2ba9f39b373372a25a1b62750641ed8591981a1a3e818"
+    },
+    {
+      "slug": "qnap",
+      "title": "QNAP",
+      "color": "0C2E82",
+      "source": "https://marketing.qnap.com/resource/qnap-logo-k100",
+      "upstream_sha256": "fbe27f4ca447ffe8ef388bdfb6edc501623581484465551f18babeee5db614be",
+      "sha256": "a6dc49b2fcb27a2d774b8e7e28844f60f156256095d74973be692e93da173869"
+    },
+    {
+      "slug": "nokia",
+      "title": "Nokia",
+      "color": "005AFF",
+      "source": "https://www.nokia.com",
+      "upstream_sha256": "0c26dfafc1b4267233783285f884cf0ff49113bcfce70e8ef57b5f47086fb896",
+      "sha256": "ef1f0555f1d20641af3f8c0ffa186c074b2c7a8f2c5cfd8e852fb4b0a315539a"
+    },
+    {
+      "slug": "intel",
+      "title": "Intel",
+      "color": "0071C5",
+      "source": "https://www.intel.com/content/www/us/en/newsroom/resources/press-kits-intel-overview.html",
+      "upstream_sha256": "25d0d4387af0999eb5dc79b165ecfd7b972ff43047406da533f3207ac92c0a57",
+      "sha256": "50979056fe9ea2eb3e79fdc3017978e8394dddcb040e2dadad0d6c9a168268ed"
+    },
+    {
+      "slug": "google",
+      "title": "Google",
+      "color": "4285F4",
+      "source": "https://partnermarketinghub.withgoogle.com",
+      "upstream_sha256": "d8cf9fb2d5e234e03254f1d6400d8cc8160c309b010d031a64f37084b5a21d01",
+      "sha256": "d5c956079f8c3e7d22c8d0abae55fc38789cd94d93ff04c66fb0079df214baf4"
+    },
+    {
+      "slug": "nintendo",
+      "title": "Nintendo",
+      "color": "E60012",
+      "source": "https://www.nintendo.com/",
+      "upstream_version": "13.0.0",
+      "upstream_url": "https://raw.githubusercontent.com/simple-icons/simple-icons/13.0.0/icons/nintendo.svg",
+      "upstream_sha256": "4879be6f85a85297ef472d0835fb24e02a7142f7e0a5e764662f2fb0dadd0056",
+      "sha256": "1034e45539739dff6ba47761e7bef65ae2f8ced8e64296e8a893079d9a5c1806"
+    },
+    {
+      "slug": "liteon",
+      "title": "LITEON",
+      "source": "https://commons.wikimedia.org/wiki/File:Liteon_logo.svg",
+      "upstream_sha256": "f8c18065bb4aaa70fda1ba58de5edb35d71cb67494a970cf9ad15bb0d96ee7bb",
+      "sha256": "dd34bc15ffc0d1788b5d04adbfa433a5c789bc63de062ef1f9d2f0645bd7c8ee"
+    },
+    {
+      "slug": "intelbras",
+      "title": "Intelbras",
+      "source": "https://manuais.intelbras.com.br/documentacao-inc-op-doc/css/res/intelbras_marca.svg",
+      "upstream_sha256": "ba739925ca3b396c926ec2de09cfa27c0c43b07b347aafecf28207bcde8a461f",
+      "sha256": "c793ab260949d666e77aaa9dfeb5ca10b97ade4cf563cc23c5a430afbd9f802b"
+    }
+  ]
+}

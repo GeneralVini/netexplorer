@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<!DOCTYPE nmaprun>
+<nmaprun scanner="nmap">
+<host><status state="up"/><address addr="192.0.2.20" addrtype="ipv4"/><address addr="00:11:22:33:44:55" addrtype="mac" vendor="Fixture Company"/></host>
+<host><status state="up"/><address addr="192.0.2.30" addrtype="ipv4"/></host>
+<host><status state="down"/><address addr="192.0.2.40" addrtype="ipv4"/></host>
+<runstats><finished exit="success"/></runstats></nmaprun>

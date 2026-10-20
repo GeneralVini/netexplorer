@@ -1,0 +1,1002 @@
+Segue um prompt já preparado para aplicar **SAST, análise de vulnerabilidades e quality gates** ao NetExplorer existente, sem desmontar a arquitetura que já definimos.
+
+> ## NetExplorer — implementar SAST, SCA e pipeline de segurança para Go
+>
+> Trabalhe no projeto **NetExplorer existente**.
+>
+> O objetivo desta tarefa é acrescentar uma camada consistente de **Static Application Security Testing (SAST)**, análise de vulnerabilidades de dependências, qualidade estática e automação em CI.
+>
+> Não reestruture o projeto desnecessariamente. Preserve toda a arquitetura, código, documentação e decisões já existentes.
+>
+> Antes de alterar qualquer arquivo:
+>
+> 1. inspecione o repositório;
+> 2. leia `README.md`;
+> 3. leia `AGENTS.md`;
+> 4. leia `RTK.md`, se existir;
+> 5. leia `docs/ARCHITECTURE.md`;
+> 6. leia `docs/SECURITY.md`;
+> 7. leia `docs/DEVELOPMENT.md`;
+> 8. inspecione `Makefile`;
+> 9. inspecione `go.mod`;
+> 10. inspecione workflows existentes em `.github/workflows/`;
+> 11. execute `git status --short`;
+> 12. preserve alterações locais do usuário.
+>
+> Não execute:
+>
+> ```bash
+> git reset --hard
+> git clean -fd
+> git checkout .
+> ```
+>
+> Não faça commits.
+>
+> Não altere configurações globais do usuário.
+>
+> ---
+>
+> # 1. Ferramentas obrigatórias
+>
+> Implemente suporte às seguintes ferramentas:
+>
+> ```text
+> gofmt
+> go vet
+> staticcheck
+> gosec
+> govulncheck
+> go test
+> CodeQL
+> ```
+>
+> Papéis:
+>
+> ```text
+> gofmt
+>     formatação
+>
+> go vet
+>     problemas estáticos básicos do toolchain Go
+>
+> staticcheck
+>     correctness, APIs incorretas, dead code e problemas idiomáticos
+>
+> gosec
+>     SAST focado em segurança Go
+>
+> govulncheck
+>     vulnerabilidades conhecidas efetivamente alcançáveis
+>
+> go test
+>     testes unitários/integrados
+>
+> CodeQL
+>     análise adicional de fluxo de dados no CI
+> ```
+>
+> Não trate `staticcheck` como substituto de `gosec`.
+>
+> Não trate `gosec` como substituto de `govulncheck`.
+>
+> São camadas complementares.
+>
+> ---
+>
+> # 2. Riscos prioritários do NetExplorer
+>
+> Configure a análise considerando principalmente os riscos arquiteturais do projeto:
+>
+> ```text
+> SSDP LOCATION não confiável
+> SSRF
+> redirects HTTP
+> URLs fornecidas por dispositivos da LAN
+> command injection
+> subprocessos
+> exec.CommandContext
+> Nmap
+> XML recebido da rede
+> path traversal
+> permissões de arquivos
+> TLS
+> input HTTP do Gin
+> concorrência
+> timeouts
+> recursos não fechados
+> tratamento inadequado de erros
+> ```
+>
+> O projeto deve continuar obedecendo à regra:
+>
+> ```go
+> exec.CommandContext(ctx, executable, args...)
+> ```
+>
+> Nunca introduzir:
+>
+> ```go
+> exec.Command("sh", "-c", userInput)
+> ```
+>
+> ou variantes equivalentes.
+>
+> ---
+>
+> # 3. gosec
+>
+> Adicione `gosec` ao processo de desenvolvimento e CI.
+>
+> O comando conceitual deve ser:
+>
+> ```bash
+> gosec ./...
+> ```
+>
+> Adicione também geração SARIF:
+>
+> ```bash
+> gosec \
+>   -fmt sarif \
+>   -out build/security/gosec.sarif \
+>   ./...
+> ```
+>
+> Crie o diretório de saída durante a execução:
+>
+> ```text
+> build/security/
+> ```
+>
+> Esse diretório deve ser ignorado pelo Git quando apropriado.
+>
+> Não desabilite regras globalmente apenas para fazer o pipeline passar.
+>
+> Caso exista finding válido:
+>
+> 1. analise;
+> 2. corrija o código quando possível;
+> 3. somente utilize `#nosec` quando houver justificativa técnica concreta;
+> 4. cada exceção deve indicar a razão.
+>
+> Exemplo aceitável:
+>
+> ```go
+> // #nosec Gxxx -- target validated against selected local subnet before execution.
+> ```
+>
+> Não usar:
+>
+> ```go
+> // #nosec
+> ```
+>
+> sem explicação.
+>
+> ---
+>
+> # 4. govulncheck
+>
+> Adicione:
+>
+> ```bash
+> govulncheck ./...
+> ```
+>
+> Esse teste deve fazer parte do security check.
+>
+> Diferencie no relatório:
+>
+> ```text
+> vulnerabilidade presente em dependência
+> ```
+>
+> de:
+>
+> ```text
+> vulnerabilidade alcançável pelo código NetExplorer
+> ```
+>
+> Não introduza dependências adicionais somente para resolver findings sem analisar a causa.
+>
+> ---
+>
+> # 5. staticcheck
+>
+> Adicione:
+>
+> ```bash
+> staticcheck ./...
+> ```
+>
+> Corrija findings reais.
+>
+> Não configure listas gigantes de exclusões.
+>
+> Se uma exclusão for realmente necessária, documente-a.
+>
+> ---
+>
+> # 6. Ferramentas Go versionadas
+>
+> Evite depender exclusivamente de ferramentas instaladas globalmente.
+>
+> Verifique qual versão de Go o projeto utiliza.
+>
+> Se o toolchain suportar adequadamente **tool dependencies do Go**, prefira uma solução versionada pelo projeto.
+>
+> Avalie, por exemplo:
+>
+> ```bash
+> go get -tool honnef.co/go/tools/cmd/staticcheck@<versão>
+> go get -tool github.com/securego/gosec/v2/cmd/gosec@<versão>
+> go get -tool golang.org/x/vuln/cmd/govulncheck@<versão>
+> ```
+>
+> e execução por:
+>
+> ```bash
+> go tool staticcheck ./...
+> go tool gosec ./...
+> go tool govulncheck ./...
+> ```
+>
+> **Antes de aplicar isso, confirme que é compatível com o `go.mod` e o toolchain atual do projeto.**
+>
+> Se a abordagem `tool` não for apropriada, implemente fallback documentado, com versões fixadas.
+>
+> Não use versões flutuantes no CI sem necessidade.
+>
+> Evite `@latest` em pipelines reprodutíveis.
+>
+> Documente claramente as versões escolhidas.
+>
+> ---
+>
+> # 7. Makefile
+>
+> Revise o `Makefile` existente em vez de substituí-lo.
+>
+> Adicione, quando ainda não existirem:
+>
+> ```text
+> make fmt
+> make vet
+> make lint
+> make sast
+> make vuln
+> make test
+> make security
+> make check
+> make security-report
+> ```
+>
+> Com responsabilidades equivalentes a:
+>
+> ```makefile
+> fmt:
+> 	gofmt ...
+>
+> vet:
+> 	go vet ./...
+>
+> lint:
+> 	staticcheck ./...
+>
+> sast:
+> 	gosec ./...
+>
+> vuln:
+> 	govulncheck ./...
+>
+> test:
+> 	go test ./...
+>
+> security:
+> 	gosec ./...
+> 	govulncheck ./...
+>
+> check:
+> 	formatação
+> 	go vet
+> 	staticcheck
+> 	gosec
+> 	govulncheck
+> 	go test
+> ```
+>
+> Adapte os comandos à estratégia de tool dependencies escolhida.
+>
+> Não duplique comandos desnecessariamente.
+>
+> ---
+>
+> # 8. Quality Gate
+>
+> `make check` deverá ser a validação local principal.
+>
+> O pipeline deverá falhar quando houver:
+>
+> ```text
+> erro de compilação
+> gofmt pendente
+> go vet failure
+> staticcheck failure relevante
+> gosec finding não aceito
+> vulnerabilidade alcançável crítica/relevante
+> testes falhando
+> ```
+>
+> Não transformar warnings irrelevantes em bloqueios arbitrários.
+>
+> Documente a política.
+>
+> ---
+>
+> # 9. Formatação
+>
+> Adicione uma verificação que não modifique silenciosamente arquivos no CI.
+>
+> Por exemplo:
+>
+> ```bash
+> test -z "$(gofmt -l .)"
+> ```
+>
+> ou implementação equivalente.
+>
+> Localmente:
+>
+> ```bash
+> make fmt
+> ```
+>
+> pode corrigir.
+>
+> CI deve apenas verificar.
+>
+> ---
+>
+> # 10. GitHub Actions — CI principal
+>
+> Inspecione primeiro workflows existentes.
+>
+> Se já existir pipeline Go, integre nele quando fizer sentido.
+>
+> Caso contrário, crie algo como:
+>
+> ```text
+> .github/workflows/ci.yml
+> ```
+>
+> Execute em:
+>
+> ```text
+> pull_request
+> push na branch principal
+> ```
+>
+> O pipeline deverá:
+>
+> ```text
+> checkout
+> setup Go
+> cache quando apropriado
+> download das dependências
+> verificar gofmt
+> go vet
+> staticcheck
+> gosec
+> govulncheck
+> go test
+> ```
+>
+> Utilize `permissions` mínimos necessários.
+>
+> Não use permissões amplas como:
+>
+> ```yaml
+> permissions: write-all
+> ```
+>
+> ---
+>
+> # 11. CodeQL
+>
+> Adicione CodeQL para Go.
+>
+> Se já houver workflow CodeQL, revise-o em vez de criar outro redundante.
+>
+> Caso contrário, crie:
+>
+> ```text
+> .github/workflows/codeql.yml
+> ```
+>
+> Analise:
+>
+> ```text
+> Go
+> ```
+>
+> Utilize inicialmente as queries padrão e, se compatível com o ambiente atual:
+>
+> ```text
+> security-extended
+> ```
+>
+> O workflow deve utilizar versões atuais e oficiais das GitHub Actions.
+>
+> Evite workflows copiados de exemplos antigos.
+>
+> Configure permissões mínimas.
+>
+> ---
+>
+> # 12. SARIF
+>
+> Gere SARIF do `gosec`.
+>
+> Se o repositório/conta suportar upload SARIF para GitHub Code Scanning, integre isso de forma adequada.
+>
+> Se houver dúvida quanto à disponibilidade da funcionalidade, mantenha:
+>
+> ```text
+> geração do arquivo SARIF
+> ```
+>
+> independentemente do upload.
+>
+> Não faça o CI depender obrigatoriamente de uma feature externa que possa não estar habilitada.
+>
+> ---
+>
+> # 13. Semgrep — preparar, não tornar obrigatório
+>
+> Não torne Semgrep requisito obrigatório nesta etapa.
+>
+> Entretanto, prepare um local para futuras regras específicas:
+>
+> ```text
+> security/semgrep/
+> ```
+>
+> Crie pelo menos documentação ou uma regra inicial para impedir:
+>
+> ```go
+> exec.Command("sh", "-c", ...)
+> ```
+>
+> e variantes equivalentes.
+>
+> Uma regra conceitual pode ser:
+>
+> ```yaml
+> rules:
+>   - id: netexplorer-no-shell-c
+>     languages:
+>       - go
+>     severity: ERROR
+>     message: Do not invoke a shell with -c. Use exec.CommandContext with explicit arguments.
+> ```
+>
+> Valide a sintaxe real antes de adicionar ao projeto.
+>
+> Não adicione dezenas de regras customizadas nesta fase.
+>
+> ---
+>
+> # 14. Regras próprias do NetExplorer
+>
+> Analise se vale criar regras para detectar usos indevidos como:
+>
+> ```go
+> http.Get(location)
+> ```
+>
+> diretamente em locais que deveriam passar pelo componente seguro de HTTP/SSRF.
+>
+> Se o projeto possuir ou vier a possuir:
+>
+> ```text
+> internal/security/safehttp
+> ```
+>
+> considere documentar uma política:
+>
+> ```text
+> URLs provenientes de SSDP/UPnP só podem ser buscadas por safehttp.
+> ```
+>
+> Não faça uma refatoração grande apenas para cumprir esta tarefa.
+>
+> Caso a arquitetura atual ainda não possua essa abstração, registre-a como recomendação técnica fundamentada.
+>
+> ---
+>
+> # 15. RTK
+>
+> O projeto já utiliza ou pretende utilizar:
+>
+> ```text
+> https://github.com/rtk-ai/rtk
+> ```
+>
+> RTK é ferramenta de desenvolvimento, **não runtime**.
+>
+> Antes de usá-lo:
+>
+> ```bash
+> command -v rtk
+> rtk --version
+> rtk gain
+> ```
+>
+> Se estiver configurado corretamente, utilize RTK para reduzir saídas extensas durante desenvolvimento, quando compatível.
+>
+> Exemplos:
+>
+> ```bash
+> rtk go test ./...
+> rtk go vet ./...
+> ```
+>
+> Verifique suporte antes de assumir wrappers para:
+>
+> ```text
+> gosec
+> staticcheck
+> govulncheck
+> ```
+>
+> Se RTK não suportar diretamente algum comando, execute-o normalmente.
+>
+> **Segurança e completude da análise têm prioridade sobre economia de tokens.**
+>
+> Nunca filtre uma saída necessária para investigar um finding.
+>
+> Não altere:
+>
+> ```text
+> ~/.codex/config.toml
+> ```
+>
+> nem configuração global do RTK.
+>
+> ---
+>
+> # 16. Documentação
+>
+> Atualize, sem apagar conteúdo válido:
+>
+> ```text
+> README.md
+> AGENTS.md
+> RTK.md
+> docs/SECURITY.md
+> docs/DEVELOPMENT.md
+> docs/TESTING.md
+> ```
+>
+> Crie também:
+>
+> ```text
+> docs/SECURITY-TOOLS.md
+> ```
+>
+> ou, se fizer mais sentido:
+>
+> ```text
+> docs/SAST.md
+> ```
+>
+> Prefira **`docs/SAST.md`**.
+>
+> ---
+>
+> # 17. docs/SAST.md
+>
+> Documente:
+>
+> ```text
+> objetivo
+> threat model resumido
+> gosec
+> govulncheck
+> staticcheck
+> go vet
+> CodeQL
+> Semgrep futuro
+> execução local
+> CI
+> SARIF
+> suppression policy
+> false positives
+> quality gate
+> atualização das ferramentas
+> troubleshooting
+> ```
+>
+> Explique claramente a diferença:
+>
+> ```text
+> SAST
+> SCA/vulnerability analysis
+> lint/correctness
+> testes
+> ```
+>
+> ---
+>
+> # 18. AGENTS.md
+>
+> Acrescente uma seção equivalente a:
+>
+> ```text
+> Security validation
+> ```
+>
+> Qualquer alteração relevante deverá ser validada com:
+>
+> ```bash
+> make check
+> ```
+>
+> ou comandos equivalentes.
+>
+> Para alterações relacionadas a:
+>
+> ```text
+> HTTP
+> SSDP
+> UPnP
+> XML
+> subprocessos
+> Nmap
+> arquivos
+> autenticação futura
+> ```
+>
+> dê atenção especial ao `gosec` e aos testes de segurança.
+>
+> Nunca sobrescreva `AGENTS.md`.
+>
+> Faça merge controlado.
+>
+> ---
+>
+> # 19. docs/SECURITY.md
+>
+> Acrescente seção sobre:
+>
+> ```text
+> Secure Development Lifecycle
+> ```
+>
+> incluindo:
+>
+> ```text
+> go vet
+> staticcheck
+> gosec
+> govulncheck
+> CodeQL
+> testes
+> code review
+> ```
+>
+> Documente também a política de suppressions.
+>
+> ---
+>
+> # 20. README.md
+>
+> Acrescente seção curta:
+>
+> ```text
+> Security checks
+> ```
+>
+> com:
+>
+> ```bash
+> make check
+> make security
+> ```
+>
+> Não sobrecarregue o README com detalhes que pertencem ao `docs/SAST.md`.
+>
+> ---
+>
+> # 21. DEVELOPMENT.md
+>
+> Documente preparação do ambiente de desenvolvimento.
+>
+> Explique como obter as ferramentas de análise de forma reprodutível.
+>
+> Prefira versões fixadas.
+>
+> Se usar `go tool`, documente:
+>
+> ```bash
+> go tool staticcheck ./...
+> go tool gosec ./...
+> go tool govulncheck ./...
+> ```
+>
+> Caso use executáveis externos, documente os comandos equivalentes.
+>
+> ---
+>
+> # 22. TESTING.md
+>
+> Acrescente:
+>
+> ```text
+> static analysis
+> vulnerability analysis
+> security regression tests
+> ```
+>
+> Diferencie claramente testes dinâmicos de SAST.
+>
+> ---
+>
+> # 23. .gitignore
+>
+> Adicione somente se necessário:
+>
+> ```text
+> build/security/
+> *.sarif
+> ```
+>
+> Considere se SARIF deve ou não ser mantido no repositório.
+>
+> Por padrão, relatórios gerados devem ficar fora do Git.
+>
+> Não ignore fixtures ou configurações de segurança.
+>
+> ---
+>
+> # 24. Scripts
+>
+> Evite criar scripts shell se o Makefile ou ferramentas Go forem suficientes.
+>
+> Se um script for realmente necessário:
+>
+> ```text
+> scripts/security-check.sh
+> ```
+>
+> ele deve:
+>
+> - usar `set -euo pipefail`;
+> - não instalar software;
+> - não alterar sistema;
+> - apenas executar checks.
+>
+> Mas prefira Makefile.
+>
+> ---
+>
+> # 25. Política de suppressions
+>
+> Suppression de findings deve ser excepcional.
+>
+> Para `gosec`:
+>
+> ```text
+> identificação da regra
+> justificativa
+> contexto
+> ```
+>
+> devem estar próximos do código.
+>
+> Nunca usar suppression para:
+>
+> ```text
+> esconder warning sem análise
+> fazer CI passar artificialmente
+> evitar corrigir SSRF
+> evitar corrigir command injection
+> ```
+>
+> ---
+>
+> # 26. Dependabot / atualização de dependências
+>
+> Verifique se já existe:
+>
+> ```text
+> .github/dependabot.yml
+> ```
+>
+> Se não existir, avalie criar configuração simples para:
+>
+> ```text
+> gomod
+> github-actions
+> ```
+>
+> Não configure frequência excessiva.
+>
+> Uma configuração semanal é suficiente.
+>
+> Mantenha PRs de atualização gerenciáveis.
+>
+> ---
+>
+> # 27. CI security permissions
+>
+> Revise permissões dos workflows.
+>
+> Use o princípio de menor privilégio.
+>
+> Para jobs comuns:
+>
+> ```yaml
+> permissions:
+>   contents: read
+> ```
+>
+> Adicione permissões adicionais apenas onde necessárias, por exemplo para CodeQL/SARIF.
+>
+> Não compartilhe permissões elevadas com jobs que não precisam delas.
+>
+> ---
+>
+> # 28. Segurança da supply chain
+>
+> Não acrescente dependências desconhecidas desnecessariamente.
+>
+> Antes de adicionar ferramenta/biblioteca:
+>
+> - confira projeto oficial;
+> - confira módulo correto;
+> - fixe versão;
+> - evite forks obscuros.
+>
+> Não altere dependências runtime do NetExplorer apenas para implementar o pipeline SAST, salvo necessidade justificada.
+>
+> ---
+>
+> # 29. Não confundir findings
+>
+> O relatório final deve separar:
+>
+> ```text
+> FORMAT
+> gofmt
+>
+> CORRECTNESS
+> go vet
+> staticcheck
+>
+> SAST
+> gosec
+> CodeQL
+>
+> VULNERABILITIES
+> govulncheck
+>
+> TESTS
+> go test
+> ```
+>
+> Isso é importante para facilitar manutenção futura.
+>
+> ---
+>
+> # 30. Critério de pronto
+>
+> A tarefa somente deve ser considerada concluída quando:
+>
+> ```text
+> [ ] gofmt está limpo
+> [ ] go vet ./... passa
+> [ ] staticcheck ./... passa ou findings estão devidamente corrigidos/documentados
+> [ ] gosec ./... executa
+> [ ] findings relevantes do gosec foram analisados
+> [ ] govulncheck ./... executa
+> [ ] vulnerabilidades alcançáveis foram analisadas
+> [ ] go test ./... passa
+> [ ] make check funciona
+> [ ] make security funciona
+> [ ] SARIF pode ser gerado
+> [ ] CI Go executa os checks
+> [ ] CodeQL está configurado
+> [ ] documentação foi atualizada
+> [ ] AGENTS.md foi preservado
+> [ ] RTK continua opcional
+> [ ] NetExplorer continua funcionando sem ferramentas de desenvolvimento
+> ```
+>
+> ---
+>
+> # 31. Validação final
+>
+> Execute, conforme a estratégia de tools adotada:
+>
+> ```bash
+> make fmt
+> make vet
+> make lint
+> make sast
+> make vuln
+> make test
+> make check
+> ```
+>
+> Gere também:
+>
+> ```text
+> build/security/gosec.sarif
+> ```
+>
+> Não omita findings.
+>
+> Se algum comando falhar por ausência de ferramenta, diferencie claramente:
+>
+> ```text
+> ferramenta não instalada/configurada
+> ```
+>
+> de:
+>
+> ```text
+> finding no código
+> ```
+>
+> ---
+>
+> # 32. Ao terminar
+>
+> Apresente um relatório conciso contendo:
+>
+> ```text
+> 1. arquivos criados;
+> 2. arquivos alterados;
+> 3. versões das ferramentas;
+> 4. estratégia escolhida para pinagem de versões;
+> 5. resultado de go vet;
+> 6. resultado de staticcheck;
+> 7. resultado de gosec;
+> 8. resultado de govulncheck;
+> 9. resultado de testes;
+> 10. status do CodeQL;
+> 11. suppressions adicionadas e justificativas;
+> 12. riscos ainda pendentes;
+> 13. git status --short.
+> ```
+>
+> Não faça commit.
+>
+> ---
+>
+> # 33. Princípio final
+>
+> Não implemente segurança apenas para “deixar o CI verde”.
+>
+> O objetivo é criar um processo de desenvolvimento seguro e sustentável para o NetExplorer.
+>
+> Dê prioridade especial a:
+>
+> ```text
+> SSRF
+> command injection
+> subprocessos
+> validação de IP/subnet
+> redirects
+> XML não confiável
+> URLs obtidas via SSDP
+> exposição HTTP
+> permissões
+> dependências vulneráveis
+> ```
+>
+> Sempre prefira corrigir a causa de um finding em vez de suprimi-lo.
+
+Eu faria uma pequena alteração adicional na arquitetura do NetExplorer depois disso: criar um pacote central como **`internal/security/safehttp`** para toda consulta a URLs descobertas via SSDP/UPnP. Isso concentra validação de subnet, redirects, timeout, tamanho máximo da resposta e mitigação de SSRF em um único lugar, e facilita muito o SAST e os testes de segurança.

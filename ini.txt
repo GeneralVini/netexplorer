@@ -1,0 +1,1743 @@
+Sim. E eu ajustaria um ponto importante do RTK: hoje ele já tem integração específica com **Codex**, inclusive em escopo de projeto (`rtk init --codex`), e suporta `--dry-run`. A documentação atual informa que essa integração pode criar/alterar `.codex/hooks.json` e `AGENTS.md`; por isso, no prompt abaixo eu determino que o Codex **nunca sobrescreva o `AGENTS.md` do projeto** e faça primeiro um `dry-run`, mesclando apenas o necessário. [GitHub](https://github.com/rtk-ai/rtk/blob/develop/docs/guide/getting-started/quick-start.md?utm_source=chatgpt.com)
+
+Também deixei o RTK como **ferramenta de desenvolvimento**, não como dependência do NetExplorer. Assim, o executável final continua sendo Go puro e não depende de RTK.
+
+## Prompt revisado para o Codex
+
+Copie o texto abaixo integralmente:
+
+---
+
+# NetExplorer — criação do projeto em Go
+
+Crie um novo projeto chamado **NetExplorer**, escrito em **Go**, destinado à descoberta, inventário, identificação e exploração de serviços disponíveis em uma **rede local própria ou autorizada**.
+
+O projeto deve ser desenvolvido como uma base de código sustentável e extensível, não como um script descartável.
+
+Antes de implementar, analise o problema, valide a arquitetura proposta, apresente a árvore inicial de arquivos e somente depois comece a criação dos arquivos.
+
+---
+
+## 1. Objetivo
+
+O NetExplorer deverá descobrir dispositivos existentes na LAN e correlacionar informações provenientes de múltiplas fontes, tais como:
+
+- SSDP/UPnP;
+- DLNA;
+- mDNS/DNS-SD;
+- ARP/neighbor table;
+- Nmap;
+- posteriormente SMB;
+- posteriormente NFS;
+- posteriormente WebDAV.
+
+O sistema deverá tentar responder perguntas como:
+
+- Quais dispositivos existem na rede?
+- Qual IP e MAC pertencem a cada dispositivo?
+- Qual hostname é anunciado?
+- Qual fabricante/modelo foi identificado?
+- O dispositivo é TV, NAS, computador, roteador, MediaServer, MediaRenderer etc.?
+- Quais serviços ele anuncia?
+- Existem bibliotecas de vídeos, imagens ou músicas disponíveis?
+- Existem compartilhamentos públicos explicitamente disponibilizados?
+- Quais ações são compatíveis com o dispositivo?
+
+O sistema **não deverá**:
+
+- tentar senhas;
+- realizar brute force;
+- explorar vulnerabilidades;
+- contornar autenticação;
+- tentar acessar compartilhamentos privados;
+- executar scanners agressivos por padrão.
+
+---
+
+# 2. Decisão arquitetural
+
+Use obrigatoriamente:
+
+```text
+Linguagem:
+    Go
+
+Framework web:
+    Gin
+
+Frontend:
+    Go html/template
+    Bootstrap 5
+    HTMX
+
+Atualização em tempo real:
+    Server-Sent Events (SSE)
+
+Descoberta nativa:
+    SSDP
+    mDNS/DNS-SD
+    ARP / Neighbor
+
+Enriquecimento:
+    UPnP/XML
+    HTTP
+    Nmap
+
+Ferramentas externas opcionais:
+    nmap
+    smbclient
+    showmount
+
+Ferramentas de referência/diagnóstico:
+    gssdp-discover
+    gupnp-av-cp
+```
+
+Não criar dependência runtime de:
+
+```text
+curl
+grep
+xmllint
+gssdp-discover
+gupnp-av-cp
+```
+
+Essas ferramentas podem aparecer na documentação e ser utilizadas para desenvolvimento/diagnóstico, mas o core da aplicação deverá utilizar implementações Go.
+
+---
+
+# 3. Regra arquitetural fundamental
+
+**Gin deve existir somente na camada HTTP/Web.**
+
+Nenhum pacote de:
+
+```text
+discovery
+protocol
+inventory
+enrichment
+tools
+scanner
+```
+
+pode importar Gin.
+
+Arquitetura:
+
+```text
+Browser
+   │
+   ▼
+Gin
+   │
+   ▼
+Handlers
+   │
+   ▼
+Application Services
+   │
+   ▼
+Discovery / Protocols / Inventory
+```
+
+Nunca:
+
+```text
+SSDP -> gin.Context
+Nmap -> gin.Context
+UPnP -> gin.Context
+```
+
+O core deve poder futuramente ser utilizado por:
+
+```text
+CLI
+REST API
+Web UI
+testes
+outros programas Go
+```
+
+sem depender da camada Web.
+
+---
+
+# 4. Estrutura inicial proposta
+
+Use aproximadamente:
+
+```text
+netexplorer/
+├── cmd/
+│   └── netexplorer/
+│       └── main.go
+│
+├── internal/
+│   ├── config/
+│   │
+│   ├── discovery/
+│   │   ├── ssdp/
+│   │   ├── mdns/
+│   │   ├── arp/
+│   │   └── network/
+│   │
+│   ├── enrichment/
+│   │   ├── upnp/
+│   │   └── nmap/
+│   │
+│   ├── protocol/
+│   │   ├── upnp/
+│   │   ├── dlna/
+│   │   ├── smb/
+│   │   ├── nfs/
+│   │   └── webdav/
+│   │
+│   ├── inventory/
+│   │
+│   ├── scanner/
+│   │
+│   ├── tools/
+│   │
+│   ├── security/
+│   │
+│   └── web/
+│       ├── handlers/
+│       ├── middleware/
+│       ├── sse/
+│       └── router.go
+│
+├── web/
+│   ├── templates/
+│   ├── static/
+│   │   ├── css/
+│   │   ├── js/
+│   │   └── img/
+│   └── assets/
+│
+├── testdata/
+│
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── SECURITY.md
+│   ├── ROADMAP.md
+│   ├── DEVELOPMENT.md
+│   ├── TESTING.md
+│   ├── PROTOCOLS.md
+│   └── TROUBLESHOOTING.md
+│
+├── .codex/
+│
+├── .gitignore
+├── go.mod
+├── go.sum
+├── Makefile
+├── README.md
+├── AGENTS.md
+├── RTK.md
+├── CONTRIBUTING.md
+├── CHANGELOG.md
+└── VERSION
+```
+
+A estrutura pode ser ajustada se houver justificativa técnica clara.
+
+Evite criar diretórios vazios sem propósito.
+
+---
+
+# 5. Arquivos Markdown obrigatórios
+
+Crie e mantenha os principais documentos do projeto.
+
+## README.md
+
+Deve conter:
+
+- apresentação do NetExplorer;
+- objetivo;
+- screenshots/placeholders futuros;
+- requisitos;
+- compilação;
+- instalação;
+- execução;
+- exemplos;
+- comandos CLI;
+- arquitetura resumida;
+- protocolos suportados;
+- ferramentas opcionais;
+- política de segurança;
+- limitações;
+- roadmap resumido;
+- como contribuir.
+
+---
+
+## AGENTS.md
+
+Este arquivo deve conter instruções para agentes de programação, incluindo Codex.
+
+Deve definir:
+
+- arquitetura obrigatória;
+- convenções Go;
+- separação entre core e Gin;
+- comandos de validação;
+- política de testes;
+- política de segurança;
+- regras para subprocessos;
+- regra de não alterar configurações globais;
+- regra para preservar código do usuário;
+- orientação sobre RTK;
+- diretórios importantes;
+- como validar mudanças antes de concluir.
+
+**Não substituir ou apagar conteúdo existente do AGENTS.md.**
+
+Se algum comando externo tentar modificá-lo, faça merge controlado.
+
+---
+
+## RTK.md
+
+Crie um documento dedicado ao **Rust Token Killer (RTK)**:
+
+```text
+https://github.com/rtk-ai/rtk
+```
+
+Explique:
+
+- finalidade do RTK;
+- que RTK é ferramenta de desenvolvimento e não runtime;
+- como verificar instalação;
+- como verificar se é o projeto correto;
+- integração com Codex;
+- uso no projeto;
+- diagnóstico;
+- troubleshooting;
+- como desabilitar temporariamente;
+- como consultar economia de tokens.
+
+Inclua verificação:
+
+```bash
+rtk --version
+rtk gain
+which rtk
+```
+
+O comando:
+
+```bash
+rtk gain
+```
+
+deve ser usado também para verificar que se trata do **Rust Token Killer**, evitando confusão com outros projetos chamados `rtk`.
+
+---
+
+## docs/ARCHITECTURE.md
+
+Documente detalhadamente:
+
+```text
+Network Interface
+       │
+       ├── SSDP
+       ├── mDNS
+       └── ARP
+            │
+            ▼
+      Device Registry
+            │
+       ┌────┴─────┐
+       ▼          ▼
+      UPnP       Nmap
+       │          │
+       └────┬─────┘
+            ▼
+       Device Profile
+            │
+            ▼
+       Web / REST API
+```
+
+Inclua:
+
+- módulos;
+- dependências;
+- direção das dependências;
+- pipeline de descoberta;
+- merge dos dados;
+- proveniência;
+- concurrency model.
+
+---
+
+## docs/SECURITY.md
+
+Documente:
+
+- LAN autorizada;
+- SSRF;
+- URL validation;
+- subnet validation;
+- XML parsing;
+- subprocessos;
+- Nmap;
+- proteção contra command injection;
+- limites de concorrência;
+- timeouts;
+- ausência de brute force;
+- ausência de exploit scanning.
+
+---
+
+## docs/ROADMAP.md
+
+Use inicialmente:
+
+```text
+0.1
+SSDP
+UPnP XML
+Device Registry
+Gin
+SSE
+Nmap enrichment
+Tool diagnostics
+
+0.2
+mDNS
+ARP enrichment
+SMB discovery
+NFS discovery
+
+0.3
+DLNA ContentDirectory
+Media browser
+MediaRenderer control
+
+0.4
+WebDAV
+Device fingerprinting
+Confidence score
+
+0.5
+Persistence
+History
+Device comparison
+Network topology
+```
+
+---
+
+## docs/PROTOCOLS.md
+
+Explique:
+
+- SSDP;
+- UPnP;
+- DLNA;
+- mDNS/DNS-SD;
+- ARP;
+- SMB;
+- NFS;
+- WebDAV;
+- protocolos utilizados pelo Nmap.
+
+Inclua portas conhecidas apenas como referência, sem transformar isso em scan agressivo automático.
+
+---
+
+## docs/DEVELOPMENT.md
+
+Inclua:
+
+- instalação de Go;
+- preparação do ambiente;
+- build;
+- execução;
+- RTK;
+- Nmap;
+- comandos Make;
+- lint;
+- tests;
+- debugging.
+
+---
+
+## docs/TESTING.md
+
+Explique:
+
+- unit tests;
+- integration tests;
+- fixtures;
+- mocks;
+- testes que não dependem da LAN;
+- testes opcionais que utilizam uma LAN real.
+
+---
+
+## docs/TROUBLESHOOTING.md
+
+Inclua problemas comuns:
+
+- multicast bloqueado;
+- interface errada;
+- firewall;
+- SSDP não retornando;
+- Nmap ausente;
+- permissões;
+- XML inválido;
+- dispositivo desaparecendo;
+- timeout;
+- IPv4/IPv6.
+
+---
+
+## CONTRIBUTING.md
+
+Inclua:
+
+- workflow;
+- branches;
+- commits;
+- testes;
+- estilo;
+- documentação;
+- segurança.
+
+---
+
+## CHANGELOG.md
+
+Use formato próximo de:
+
+```text
+Keep a Changelog
+```
+
+Não invente releases anteriores.
+
+Comece com:
+
+```text
+[Unreleased]
+```
+
+---
+
+# 6. Integração com RTK
+
+O RTK será utilizado para reduzir saída/token durante desenvolvimento com Codex.
+
+**RTK não é uma dependência do executável NetExplorer.**
+
+Primeiro verifique:
+
+```bash
+command -v rtk
+rtk --version
+rtk gain
+```
+
+Se `rtk gain` funcionar, considere RTK instalado corretamente.
+
+Se RTK não existir, **não instale automaticamente sem necessidade**.
+
+Documente em `RTK.md` como instalar a versão oficial:
+
+```text
+rtk-ai/rtk
+```
+
+---
+
+# 7. Integração RTK + Codex
+
+Antes de modificar qualquer arquivo usando o instalador RTK, execute:
+
+```bash
+rtk init --codex --dry-run
+```
+
+Analise exatamente o que seria alterado.
+
+A integração project-scoped poderá envolver:
+
+```text
+.codex/hooks.json
+AGENTS.md
+```
+
+Regras obrigatórias:
+
+1. **Nunca sobrescrever AGENTS.md.**
+2. Preservar todas as instruções específicas do NetExplorer.
+3. Se o RTK propuser alterações, fazer merge mínimo.
+4. Não remover regras existentes.
+5. Não fazer instalação global sem autorização explícita.
+6. Não alterar `~/.codex/config.toml`.
+7. Não alterar configurações de outros projetos.
+8. Não alterar arquivos globais do usuário silenciosamente.
+
+Se for seguro, configure integração **somente no projeto**.
+
+Após integrar, valide:
+
+```bash
+rtk --version
+rtk gain
+```
+
+e, quando aplicável:
+
+```bash
+rtk init --show
+```
+
+Documente o resultado em `RTK.md`.
+
+---
+
+# 8. Uso do RTK durante desenvolvimento
+
+Quando a integração RTK/Codex estiver ativa, use-a para comandos que geram muita saída.
+
+Exemplos relevantes:
+
+```bash
+go test ./...
+go vet ./...
+git status
+git diff
+git log
+find
+rg
+```
+
+Evite introduzir wrappers shell desnecessários.
+
+Caso o hook não esteja ativo, comandos explicitamente prefixados por RTK podem ser utilizados quando apropriado.
+
+Exemplo:
+
+```bash
+rtk go test ./...
+rtk git status
+rtk git diff
+```
+
+Se precisar da saída original completa para diagnóstico, utilize os mecanismos próprios do RTK ou execute explicitamente sem filtragem.
+
+O RTK nunca deve modificar o comportamento funcional da aplicação.
+
+---
+
+# 9. Makefile
+
+Crie um Makefile com alvos como:
+
+```text
+make build
+make run
+make test
+make vet
+make fmt
+make check
+make doctor
+make clean
+```
+
+Opcionalmente:
+
+```text
+make rtk-check
+```
+
+Esse alvo deve apenas verificar:
+
+```bash
+rtk --version
+rtk gain
+```
+
+Não instalar nem modificar configuração.
+
+`make check` deve executar:
+
+```text
+gofmt validation
+go vet ./...
+go test ./...
+```
+
+---
+
+# 10. MVP 0.1
+
+Implemente inicialmente:
+
+1. detecção das interfaces locais;
+2. identificação das interfaces IPv4;
+3. escolha automática razoável da interface;
+4. possibilidade de selecionar interface manualmente;
+5. descoberta SSDP nativa;
+6. parsing SSDP;
+7. coleta de LOCATION;
+8. validação segura de LOCATION;
+9. download de XML UPnP;
+10. parsing UPnP;
+11. inventário em memória;
+12. merge de dispositivos;
+13. proveniência dos dados;
+14. frontend Gin;
+15. HTMX;
+16. SSE;
+17. diagnóstico de ferramentas externas;
+18. integração opcional com Nmap;
+19. CLI básica.
+
+Não implemente ainda SMB/NFS/WebDAV funcionalmente.
+
+Prepare interfaces adequadas para versões futuras.
+
+---
+
+# 11. SSDP nativo
+
+Não execute `gssdp-discover` no core.
+
+Implemente SSDP nativamente.
+
+Destino:
+
+```text
+239.255.255.250:1900
+```
+
+Mensagem:
+
+```text
+M-SEARCH * HTTP/1.1
+HOST: 239.255.255.250:1900
+MAN: "ssdp:discover"
+MX: 3
+ST: ssdp:all
+```
+
+Colete:
+
+```text
+LOCATION
+USN
+ST
+SERVER
+CACHE-CONTROL
+EXT
+```
+
+Normalize headers de forma case-insensitive.
+
+Não fixe:
+
+```text
+IP
+interface
+porta do dispositivo
+LOCATION
+```
+
+---
+
+# 12. UPnP
+
+Ao obter:
+
+```text
+LOCATION
+```
+
+use `net/http`.
+
+Não utilizar:
+
+```text
+curl
+xmllint
+grep
+```
+
+como dependência.
+
+Parseie com:
+
+```go
+encoding/xml
+```
+
+Extraia:
+
+```text
+friendlyName
+manufacturer
+manufacturerURL
+modelDescription
+modelName
+modelNumber
+modelURL
+serialNumber
+UDN
+deviceType
+presentationURL
+```
+
+E serviços:
+
+```text
+serviceType
+serviceId
+SCPDURL
+controlURL
+eventSubURL
+```
+
+---
+
+# 13. Device Registry
+
+Crie um modelo central.
+
+Exemplo:
+
+```go
+type Device struct {
+    ID           string
+    IP           net.IP
+    MAC          string
+    Hostname     string
+    FriendlyName string
+    Manufacturer string
+    ModelName    string
+    ModelNumber  string
+    SerialNumber string
+    DeviceType   string
+    Location     string
+
+    Services []Service
+    Sources  []Source
+
+    FirstSeen time.Time
+    LastSeen  time.Time
+}
+```
+
+Não precisa copiar exatamente essa estrutura se houver uma modelagem melhor.
+
+---
+
+# 14. Merge de informações
+
+Um mesmo dispositivo poderá ser encontrado por diversas tecnologias.
+
+Exemplo:
+
+```text
+SSDP
+    ↓
+IP
+
+ARP
+    ↓
+MAC
+
+mDNS
+    ↓
+Hostname
+
+UPnP
+    ↓
+Manufacturer
+Model
+Services
+
+Nmap
+    ↓
+Ports
+Services
+Versions
+```
+
+Tudo deverá resultar em **um único Device** sempre que houver evidência suficiente para correlacioná-los.
+
+Evite deduplicação baseada somente em FriendlyName.
+
+---
+
+# 15. Proveniência
+
+Cada informação relevante deverá poder indicar a origem.
+
+Exemplo:
+
+```text
+IP             SSDP
+MAC            ARP
+Hostname       mDNS
+FriendlyName   UPnP
+Manufacturer   UPnP
+Port 52323     Nmap
+```
+
+Crie estruturas adequadas.
+
+---
+
+# 16. Confidence Score
+
+Prepare infraestrutura para um futuro confidence score.
+
+Não implemente heurísticas exageradas no MVP.
+
+Exemplo futuro:
+
+```text
+Sony BRAVIA
+
+manufacturer Sony       +40
+Sony IRCC                +25
+Sony ScalarWebAPI        +20
+MediaRenderer            +10
+
+Confidence: 95
+```
+
+---
+
+# 17. Nmap
+
+Nmap deve ser:
+
+```text
+opcional
+externo
+desacoplado
+```
+
+Nunca embuta o executável Nmap dentro do binário Go.
+
+Detecte:
+
+```go
+exec.LookPath("nmap")
+```
+
+Crie algo semelhante a:
+
+```go
+type Scanner interface {
+    Available() bool
+    Version(ctx context.Context) (string, error)
+    Scan(ctx context.Context, target net.IP) ([]Service, error)
+}
+```
+
+---
+
+# 18. Nmap XML
+
+Nunca parseie output textual humano do Nmap.
+
+Use:
+
+```bash
+nmap -sV --version-light -oX - IP
+```
+
+Parseie XML.
+
+Não utilize:
+
+```bash
+sh -c
+```
+
+Utilize:
+
+```go
+exec.CommandContext(
+    ctx,
+    "nmap",
+    "-sV",
+    "--version-light",
+    "-oX",
+    "-",
+    ip.String(),
+)
+```
+
+Antes da execução:
+
+- valide IP;
+- valide subnet;
+- confirme que pertence à LAN selecionada;
+- aplique timeout.
+
+---
+
+# 19. Papel do Nmap
+
+Nmap não é o mecanismo principal.
+
+Pipeline:
+
+```text
+SSDP
+mDNS
+ARP
+   │
+   ▼
+Device Registry
+   │
+   ▼
+UPnP enrichment
+   │
+   ▼
+Nmap opcional
+   │
+   ▼
+Device Profile
+```
+
+No MVP, Nmap somente deve ser executado:
+
+- por ação explícita do usuário;
+- para um IP individual.
+
+Não realizar automaticamente:
+
+```text
+nmap -p-
+nmap -A
+nmap -O
+scripts agressivos
+vulnerability scanning
+```
+
+---
+
+# 20. External tools provider
+
+Crie:
+
+```text
+internal/tools/
+```
+
+Detecte:
+
+```text
+nmap
+smbclient
+showmount
+gssdp-discover
+gupnp-av-cp
+rtk
+```
+
+Use estrutura semelhante:
+
+```go
+type ToolInfo struct {
+    Name      string
+    Path      string
+    Version   string
+    Available bool
+}
+```
+
+Observação:
+
+**RTK pertence às ferramentas de desenvolvimento e não às capabilities runtime do NetExplorer.**
+
+Não misture os dois conceitos no frontend destinado ao usuário final.
+
+---
+
+# 21. Doctor
+
+Implemente:
+
+```bash
+netexplorer doctor
+```
+
+Exemplo:
+
+```text
+NetExplorer diagnostics
+
+Network
+[OK] Interface: wlx78bdbc5e68fd
+[OK] IPv4: 192.168.1.63/24
+[OK] Default gateway: 192.168.1.254
+
+Native capabilities
+[OK] SSDP
+[OK] HTTP
+[OK] XML
+
+Optional runtime tools
+[OK] nmap 7.98
+[--] smbclient
+[--] showmount
+
+Development
+[OK] Go
+[OK] RTK
+```
+
+---
+
+# 22. CLI
+
+Implemente:
+
+```text
+netexplorer serve
+netexplorer scan
+netexplorer doctor
+netexplorer version
+```
+
+Evite Cobra inicialmente.
+
+Use:
+
+```go
+flag
+```
+
+ou uma implementação mínima própria sobre standard library.
+
+---
+
+# 23. API
+
+Crie pelo menos:
+
+```text
+GET  /api/health
+GET  /api/interfaces
+GET  /api/devices
+GET  /api/devices/:id
+
+POST /api/scans
+GET  /api/scans/:id
+GET  /api/scans/:id/events
+
+POST /api/devices/:id/nmap
+
+GET /api/tools
+```
+
+---
+
+# 24. SSE
+
+Utilize Server-Sent Events.
+
+Eventos:
+
+```text
+scan-started
+host-found
+device-found
+device-updated
+service-found
+scan-complete
+scan-error
+```
+
+Exemplo:
+
+```text
+event: device-found
+data: {"ip":"192.168.1.17","name":"Sony BRAVIA"}
+```
+
+Não introduzir WebSockets no MVP.
+
+---
+
+# 25. Frontend
+
+Utilize:
+
+```text
+Gin
+html/template
+Bootstrap 5
+HTMX
+SSE
+```
+
+Não utilizar:
+
+```text
+React
+Vue
+Angular
+npm
+Webpack
+Vite
+Node build pipeline
+```
+
+salvo decisão posterior explícita.
+
+---
+
+# 26. Tela principal
+
+Mostrar:
+
+```text
+Interface
+CIDR
+Gateway
+
+[ Scan Network ]
+```
+
+E cards:
+
+```text
+Sony BRAVIA
+192.168.1.17
+
+Manufacturer
+Sony Corporation
+
+Type
+MediaRenderer
+
+Services
+AVTransport
+RenderingControl
+IRCC
+ScalarWebAPI
+
+Sources
+SSDP ✓
+UPnP ✓
+ARP  ✓
+mDNS —
+Nmap —
+
+[ Details ] [ Nmap ]
+```
+
+---
+
+# 27. Tela de dispositivo
+
+Mostrar:
+
+- IP;
+- MAC;
+- hostname;
+- friendlyName;
+- fabricante;
+- modelo;
+- serial quando disponível;
+- UPnP DeviceType;
+- SSDP USNs;
+- services;
+- portas;
+- proveniência;
+- first seen;
+- last seen;
+- confidence futuro.
+
+Mostrar também:
+
+```text
+Discovery evidence
+```
+
+com os dados que levaram à identificação.
+
+---
+
+# 28. Segurança contra SSRF
+
+SSDP pode fornecer LOCATION arbitrário.
+
+Portanto, valide rigorosamente.
+
+Aceite somente:
+
+```text
+http
+https
+```
+
+quando apropriado.
+
+Bloqueie:
+
+```text
+file:
+ftp:
+gopher:
+data:
+unix:
+```
+
+Valide se o host pertence à rede local/interface selecionada.
+
+Implemente:
+
+- timeout;
+- limite de redirects;
+- limite de tamanho de resposta;
+- validação de DNS;
+- proteção contra DNS rebinding quando aplicável;
+- validação após redirect.
+
+---
+
+# 29. XML
+
+Não permita external entities.
+
+Use parser seguro.
+
+Imponha limite de tamanho para documentos UPnP/XML.
+
+Não aceite respostas ilimitadas.
+
+---
+
+# 30. Subprocessos
+
+Nunca:
+
+```go
+exec.Command("sh", "-c", userInput)
+```
+
+Nunca concatene input do usuário em shell.
+
+Sempre:
+
+```go
+exec.CommandContext(ctx, binary, args...)
+```
+
+Valide argumentos antes.
+
+---
+
+# 31. Concorrência
+
+Use de forma idiomática:
+
+```text
+context.Context
+goroutines
+channels
+sync.WaitGroup
+semaphore
+```
+
+Toda operação deve suportar:
+
+```text
+timeout
+cancelamento
+limite de concorrência
+```
+
+Não criar goroutines ilimitadas.
+
+---
+
+# 32. Logging
+
+Use:
+
+```go
+log/slog
+```
+
+Exemplo:
+
+```text
+INFO ssdp discovery started interface=wlx78bdbc5e68fd
+INFO device discovered ip=192.168.1.17
+INFO upnp parsed manufacturer=Sony
+WARN nmap unavailable
+```
+
+Evite logar dados sensíveis.
+
+---
+
+# 33. Configuração
+
+Prefira:
+
+```text
+flags
+environment variables
+internal config struct
+```
+
+Não introduza Viper inicialmente.
+
+Exemplo:
+
+```bash
+netexplorer serve \
+    --listen 127.0.0.1:8080 \
+    --interface wlx78bdbc5e68fd
+```
+
+Bind padrão:
+
+```text
+127.0.0.1
+```
+
+Nunca `0.0.0.0` como default.
+
+---
+
+# 34. Testes
+
+Crie testes principalmente para:
+
+```text
+SSDP parser
+UPnP XML parser
+Nmap XML parser
+device merge
+IP validation
+subnet validation
+LOCATION validation
+tool discovery
+SSE events
+```
+
+Use:
+
+```text
+testdata/
+```
+
+Inclua fixtures como:
+
+```text
+sony-bravia-dmr.xml
+minidlna-rootdesc.xml
+nmap-sample.xml
+ssdp-responses.txt
+```
+
+Os testes unitários não podem depender da existência da TV ou da LAN atual.
+
+---
+
+# 35. Qualidade
+
+Antes de concluir qualquer etapa execute:
+
+```bash
+gofmt
+go vet ./...
+go test ./...
+```
+
+Se existir:
+
+```bash
+staticcheck ./...
+```
+
+Quando RTK estiver configurado, prefira utilizá-lo para reduzir saída dos comandos.
+
+---
+
+# 36. Dependências
+
+Minimize dependências externas.
+
+Obrigatória:
+
+```text
+github.com/gin-gonic/gin
+```
+
+Para mDNS, poderá ser utilizada biblioteca consolidada se houver justificativa.
+
+Prefira standard library quando tecnicamente razoável.
+
+---
+
+# 37. Go
+
+Como o proprietário do projeto ainda está aprendendo Go:
+
+- escreva código idiomático;
+- evite abstrações excessivamente sofisticadas;
+- comente decisões não óbvias;
+- mantenha nomes claros;
+- mantenha funções pequenas;
+- explique padrões usados;
+- não introduza generics sem benefício claro;
+- não introduza reflection sem necessidade;
+- evite frameworks adicionais.
+
+Os comentários devem explicar **por que**, não simplesmente repetir o código.
+
+---
+
+# 38. Política de alterações
+
+Antes de editar:
+
+1. inspecione arquivos existentes;
+2. preserve alterações do usuário;
+3. evite reescrever arquivos inteiros sem necessidade;
+4. não sobrescreva configurações;
+5. não remova comentários relevantes;
+6. não altere comportamento fora do escopo.
+
+Nunca execute:
+
+```text
+git reset --hard
+git clean -fd
+git checkout .
+```
+
+sem solicitação explícita.
+
+Não faça commits automaticamente.
+
+---
+
+# 39. Fases de implementação
+
+Execute incrementalmente.
+
+## Fase 1
+
+```text
+bootstrap Go
+CLI
+config
+network interfaces
+health
+doctor
+```
+
+## Fase 2
+
+```text
+SSDP native
+SSDP parser
+tests
+```
+
+## Fase 3
+
+```text
+UPnP HTTP
+UPnP XML
+Device Registry
+merge
+```
+
+## Fase 4
+
+```text
+Gin
+templates
+Bootstrap
+HTMX
+SSE
+```
+
+## Fase 5
+
+```text
+Nmap provider
+Nmap XML
+manual enrichment
+```
+
+## Fase 6
+
+```text
+RTK integration
+documentation
+cleanup
+tests
+```
+
+Não tente implementar todas as fases simultaneamente.
+
+---
+
+# 40. Fluxo obrigatório antes de começar
+
+Antes de criar código:
+
+1. inspecione o diretório atual;
+2. verifique se já existe repositório;
+3. verifique `git status`;
+4. verifique Go;
+5. verifique RTK;
+6. verifique Nmap;
+7. proponha árvore;
+8. liste dependências;
+9. liste decisões arquiteturais;
+10. apresente plano de implementação.
+
+Depois inicie a implementação.
+
+---
+
+# 41. RTK no fluxo do Codex
+
+Se RTK estiver instalado:
+
+```bash
+rtk --version
+rtk gain
+```
+
+Faça:
+
+```bash
+rtk init --codex --dry-run
+```
+
+antes de habilitar integração.
+
+Não permita que esse comando elimine ou substitua o `AGENTS.md`.
+
+Depois de verificar o dry-run, faça somente as alterações de projeto necessárias.
+
+Não executar configuração global RTK automaticamente.
+
+Não modificar:
+
+```text
+~/.codex/config.toml
+~/.config/rtk/config.toml
+```
+
+sem autorização explícita.
+
+---
+
+# 42. Definição de pronto do MVP 0.1
+
+O MVP somente estará concluído se:
+
+```text
+[ ] compilar
+[ ] gofmt estiver limpo
+[ ] go vet ./... passar
+[ ] go test ./... passar
+[ ] SSDP funcionar
+[ ] UPnP parsing funcionar
+[ ] Device Registry funcionar
+[ ] frontend abrir
+[ ] SSE funcionar
+[ ] Nmap ser opcional
+[ ] doctor funcionar
+[ ] documentação existir
+[ ] RTK estiver documentado
+[ ] testes não dependerem da LAN
+[ ] aplicação funcionar sem RTK
+[ ] aplicação funcionar sem Nmap
+```
+
+---
+
+# 43. Ao final
+
+Apresente:
+
+```text
+1. resumo do que foi implementado;
+2. árvore final do projeto;
+3. dependências adicionadas;
+4. comandos de build;
+5. comandos de execução;
+6. comandos de teste;
+7. status do RTK;
+8. status do Nmap;
+9. limitações;
+10. próximos passos.
+```
+
+Informe também:
+
+```bash
+git status --short
+```
+
+mas **não faça commit** sem solicitação explícita.
+
+---
+
+# 44. Princípio final
+
+Priorize:
+
+```text
+simplicidade
+segurança
+Go idiomático
+baixo acoplamento
+testabilidade
+observabilidade
+documentação
+evolução incremental
+```
+
+Evite:
+
+```text
+overengineering
+dependências desnecessárias
+shell parsing frágil
+globals mutáveis
+god objects
+arquivos gigantes
+funções gigantes
+magic numbers
+scans agressivos
+```
+
+O objetivo é que o NetExplorer comece pequeno, mas possa evoluir posteriormente para um verdadeiro **explorador e inventário de dispositivos e serviços de rede local**.
+
+---
+
+### Uma alteração importante em relação ao prompt anterior
+
+Eu colocaria o **RTK como parte do ambiente de desenvolvimento, e não dentro do NetExplorer**. A versão atual do RTK suporta especificamente Codex com `rtk init --codex`; para agentes sem integração automática, ele também possui modos de awareness e proxy, além de `rtk gain` para acompanhar a redução de tokens. [GitHub](https://github.com/rtk-ai/rtk/blob/develop/docs/guide/getting-started/configuration.md?utm_source=chatgpt.com)
+
+Também é importante a verificação com `rtk gain`, porque há mais de um projeto chamado `rtk`; a documentação oficial recomenda essa checagem para confirmar que está instalado o **Rust Token Killer `rtk-ai/rtk`**. [GitHub](https://github.com/rtk-ai/rtk/blob/develop/docs/guide/getting-started/installation.md?utm_source=chatgpt.com)
+
+Com isso, eu considero o prompt significativamente melhor preparado para o Codex: ele define **produto, arquitetura, limites, segurança, documentação, RTK, testes e critérios de conclusão**, mas ainda mantém o desenvolvimento dividido em fases para evitar o Codex tentar construir tudo de uma vez.

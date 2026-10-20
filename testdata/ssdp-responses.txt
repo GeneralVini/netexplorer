@@ -1,0 +1,8 @@
+HTTP/1.1 200 OK
+location: http://192.0.2.10:8200/rootDesc.xml
+uSn: uuid:fixture-server::upnp:rootdevice
+st: upnp:rootdevice
+server: TestOS/1.0 UPnP/1.0 MiniDLNA/1.0
+cache-control: max-age=1800
+ext:
+

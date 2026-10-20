@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0"><URLBase>http://192.0.2.10:8200/</URLBase><device>
+<deviceType>urn:schemas-upnp-org:device:MediaServer:1</deviceType>
+<friendlyName>Fixture Media Server</friendlyName><manufacturer>Fixture Vendor</manufacturer>
+<manufacturerURL>https://example.invalid/vendor</manufacturerURL><modelDescription>Fixture description</modelDescription>
+<modelName>Fixture NAS</modelName><modelNumber>1</modelNumber><modelURL>https://example.invalid/model</modelURL>
+<serialNumber>fixture-001</serialNumber><UDN>uuid:fixture-server</UDN><presentationURL>/status</presentationURL>
+<serviceList><service><serviceType>urn:schemas-upnp-org:service:ContentDirectory:1</serviceType><serviceId>urn:upnp-org:serviceId:ContentDirectory</serviceId><SCPDURL>/content.xml</SCPDURL><controlURL>/control</controlURL><eventSubURL>/events</eventSubURL></service></serviceList>
+<deviceList><device><deviceType>urn:schemas-upnp-org:device:MediaRenderer:1</deviceType><friendlyName>Fixture Renderer</friendlyName><UDN>uuid:fixture-child</UDN></device></deviceList>
+</device></root>
